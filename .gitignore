@@ -1,0 +1,53 @@
+# Build directory
+build/
+
+# LibTorch directory and download
+libtorch/
+libtorch-*.zip
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+torch_project
+
+# Windows-specific
+*.pdb
+*.ilk
+*.exp
+
+# Visual Studio
+.vs/
+*.vcxproj.user
+*.sln
+*.vcxproj
+*.vcxproj.filters
+
+# Build scripts are included (not ignored) 
