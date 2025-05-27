@@ -36,17 +36,25 @@ echo Version: %LIBTORCH_VERSION%
 echo CUDA: %CUDA_VERSION%
 echo.
 
-REM Check if LibTorch already exists
+REM Check if LibTorch already exists and is valid
 if exist "%LIBTORCH_DIR%" (
-    echo ⚠️ LibTorch directory already exists. Delete it first if you want to re-download.
-    echo Current LibTorch: %LIBTORCH_DIR%
-    goto :end
+    if exist "%LIBTORCH_DIR%\lib\torch.lib" (
+        echo ✅ LibTorch directory already exists and appears valid.
+        echo Current LibTorch: %LIBTORCH_DIR%
+        echo 💡 Delete the directory if you want to re-download: rmdir /s "%LIBTORCH_DIR%"
+        goto :end
+    ) else (
+        echo ⚠️ LibTorch directory exists but appears incomplete. Removing and re-downloading...
+        rmdir /s /q "%LIBTORCH_DIR%" 2>nul
+    )
 )
 
 REM Check if zip already exists
 if exist "%LIBTORCH_ZIP%" (
     echo 📦 Found existing LibTorch zip file: %LIBTORCH_ZIP%
     goto :extract
+) else (
+    echo 📥 LibTorch zip not found, will download: %LIBTORCH_ZIP%
 )
 
 REM Download LibTorch
@@ -67,15 +75,52 @@ echo ✅ Download completed!
 :extract
 REM Extract LibTorch
 echo 📂 Extracting LibTorch...
-powershell -Command "Expand-Archive -Path '%LIBTORCH_ZIP%' -DestinationPath '.' -Force"
 
-if errorlevel 1 (
-    echo ❌ Extraction failed.
-    exit /b 1
+REM Clean up any incomplete extraction
+if exist "%LIBTORCH_DIR%" (
+    echo 🧹 Cleaning up incomplete extraction...
+    rmdir /s /q "%LIBTORCH_DIR%" 2>nul
 )
 
-echo ✅ LibTorch extracted successfully!
-echo 📁 LibTorch location: %cd%\%LIBTORCH_DIR%
+REM Try PowerShell Expand-Archive first, fallback to other methods if it fails
+powershell -Command "try { Import-Module Microsoft.PowerShell.Archive -Force; Expand-Archive -Path '%LIBTORCH_ZIP%' -DestinationPath '.' -Force; exit 0 } catch { exit 1 }" >nul 2>&1
+
+if errorlevel 1 (
+    echo ⚠️ PowerShell Expand-Archive failed, trying alternative extraction method...
+    
+    REM Try using PowerShell with .NET classes as fallback
+    powershell -Command "Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::ExtractToDirectory('%LIBTORCH_ZIP%', '.')" >nul 2>&1
+    
+    if errorlevel 1 (
+        echo ⚠️ .NET extraction failed, trying 7-Zip or WinRAR...
+        
+        REM Try 7-Zip if available
+        where 7z >nul 2>&1
+        if not errorlevel 1 (
+            7z x "%LIBTORCH_ZIP%" -y >nul
+        ) else (
+            REM Try WinRAR if available
+            where winrar >nul 2>&1
+            if not errorlevel 1 (
+                winrar x "%LIBTORCH_ZIP%" >nul
+            ) else (
+                echo ❌ Extraction failed. Please install 7-Zip, WinRAR, or ensure PowerShell modules are available.
+                echo 💡 You can manually extract %LIBTORCH_ZIP% to the current directory.
+                exit /b 1
+            )
+        )
+    )
+)
+
+REM Verify extraction was successful
+if exist "%LIBTORCH_DIR%\lib\torch.lib" (
+    echo ✅ LibTorch extracted successfully!
+    echo 📁 LibTorch location: %cd%\%LIBTORCH_DIR%
+) else (
+    echo ❌ LibTorch extraction appears to have failed - torch.lib not found.
+    echo 💡 Please check if the zip file is corrupted or try manual extraction.
+    exit /b 1
+)
 
 :end
 echo.

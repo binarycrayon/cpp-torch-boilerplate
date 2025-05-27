@@ -4,14 +4,34 @@ project(torch_project LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Workaround for nvToolsExt issue with CUDA 12.x and PyTorch
+# This addresses the "Failed to find nvToolsExt" error
+find_package(CUDAToolkit QUIET)
+if(CUDAToolkit_FOUND AND CUDAToolkit_VERSION VERSION_GREATER_EQUAL 12.0)
+    message(STATUS "PyTorch NVTX headers workaround: Yes (CUDA ${CUDAToolkit_VERSION})")
+    # Only do this if nvToolsExt is not defined and CUDA::nvtx3 exists
+    if(NOT TARGET CUDA::nvToolsExt AND TARGET CUDA::nvtx3)
+        add_library(CUDA::nvToolsExt INTERFACE IMPORTED)
+        # Ensure that PyTorch is told to use NVTX3 headers
+        target_compile_definitions(
+            CUDA::nvToolsExt INTERFACE
+            TORCH_CUDA_USE_NVTX3
+        )
+        target_link_libraries(CUDA::nvToolsExt INTERFACE CUDA::nvtx3)
+    endif()
+else()
+    message(STATUS "PyTorch NVTX headers workaround: No")
+endif()
+
 # Find PyTorch package
 find_package(Torch REQUIRED)
 
+# Disable CUDA to avoid version conflicts
 # Enable CUDA if available and found by Torch
-if(TORCH_CUDA_FOUND)
-    enable_language(CUDA)
-    set(CMAKE_CUDA_STANDARD 17)
-endif()
+# if(TORCH_CUDA_FOUND)
+#     enable_language(CUDA)
+#     set(CMAKE_CUDA_STANDARD 17)
+# endif()
 
 # Add executable
 add_executable(${PROJECT_NAME} main.cpp)

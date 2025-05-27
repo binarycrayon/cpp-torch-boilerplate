@@ -1,50 +1,76 @@
 @echo off
 setlocal enabledelayedexpansion
 
-REM Build script for Windows with timeout and progress monitoring
-set PROJECT_NAME=torch_project
-set BUILD_DIR=build
-set LIBTORCH_DIR=libtorch
-set TIMEOUT=300
+echo === C++ PyTorch Build Script ===
 
-echo === C++ PyTorch Build Script (Windows) ===
-
-REM Check if LibTorch exists
-if not exist "%LIBTORCH_DIR%" (
-    echo ❌ LibTorch not found. Run setup.bat first.
+call :find_cmake
+if %errorlevel% neq 0 (
+    echo ERROR: CMake not found
     exit /b 1
 )
 
-REM Clean and create build directory
-echo 🧹 Cleaning build directory...
-if exist "%BUILD_DIR%" rmdir /s /q "%BUILD_DIR%"
-mkdir "%BUILD_DIR%"
+echo SUCCESS: Found CMake at %CMAKE_EXE%
 
-REM CMake configuration
-echo ⚙️ Running CMake configuration...
-cd "%BUILD_DIR%"
-
-cmake -DTorch_DIR="%cd%\..\%LIBTORCH_DIR%\share\cmake\Torch" .. -G "Visual Studio 17 2022" -A x64
-if errorlevel 1 (
-    echo ❌ CMake configuration failed
+if not exist "libtorch" (
+    echo ERROR: LibTorch not found. Run setup.bat first.
     exit /b 1
 )
 
-REM Build
-echo 🔨 Building project...
-cmake --build . --config Release --parallel
-if errorlevel 1 (
-    echo ❌ Build failed
+echo SUCCESS: Found LibTorch
+
+echo INFO: Cleaning build directory...
+if exist "build" rmdir /s /q "build"
+mkdir "build"
+
+echo INFO: Running CMake configuration...
+cd "build"
+
+"%CMAKE_EXE%" -DTorch_DIR="%cd%\..\libtorch\share\cmake\Torch" .. -G "Visual Studio 17 2022" -A x64
+if %errorlevel% neq 0 (
+    echo ERROR: CMake configuration failed
+    cd ..
     exit /b 1
 )
 
-echo ✅ Build completed successfully!
+echo INFO: Building project...
+"%CMAKE_EXE%" --build . --config Release --parallel
+if %errorlevel% neq 0 (
+    echo ERROR: Build failed
+    cd ..
+    exit /b 1
+)
 
-REM Test run
+echo SUCCESS: Build completed!
+
 if "%1"=="--run" (
-    echo 🚀 Running executable...
-    Release\%PROJECT_NAME%.exe
+    echo INFO: Running executable...
+    Release\torch_project.exe
 )
 
-echo 🎉 All done!
-cd .. 
+echo SUCCESS: All done!
+cd ..
+goto :eof
+
+:find_cmake
+set CMAKE_EXE=
+
+where cmake >nul 2>&1
+if %errorlevel% equ 0 (
+    set CMAKE_EXE=cmake
+    exit /b 0
+)
+
+set "PATH=%PATH%;C:\Program Files\CMake\bin"
+
+where cmake >nul 2>&1
+if %errorlevel% equ 0 (
+    set CMAKE_EXE=cmake
+    exit /b 0
+)
+
+if exist "C:\Program Files\CMake\bin\cmake.exe" (
+    set CMAKE_EXE="C:\Program Files\CMake\bin\cmake.exe"
+    exit /b 0
+)
+
+exit /b 1 
